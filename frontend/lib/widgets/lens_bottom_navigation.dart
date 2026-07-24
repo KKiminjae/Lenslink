@@ -4,13 +4,19 @@ import '../core/constants/app_colors.dart';
 
 class LensBottomNavigation extends StatelessWidget {
   final int currentIndex;
+  final ValueChanged<int>? onTap;
 
-  const LensBottomNavigation({super.key, required this.currentIndex});
+  const LensBottomNavigation({
+    super.key,
+    required this.currentIndex,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return BottomNavigationBar(
       currentIndex: currentIndex,
+      onTap: onTap,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: AppColors.subText,
       selectedFontSize: 11,

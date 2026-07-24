@@ -8,9 +8,12 @@ import '../../services/api_service.dart';
 import '../../services/image_picker_service.dart';
 import '../../widgets/lens_bottom_navigation.dart';
 import '../analysis/analysis_page.dart';
+import '../history/history_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final bool loadRecentSearches;
+
+  const HomePage({super.key, this.loadRecentSearches = true});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -27,7 +30,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadRecentSearches();
+    if (widget.loadRecentSearches) {
+      _loadRecentSearches();
+    }
   }
 
   Future<void> _loadRecentSearches() async {
@@ -59,13 +64,24 @@ class _HomePageState extends State<HomePage> {
 
     if (image == null || !mounted) return;
 
-    _goToAnalysis(image);
+    await _goToAnalysis(image);
   }
 
-  void _goToAnalysis(File image) {
-    Navigator.push(
+  Future<void> _goToAnalysis(File image) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => AnalysisPage(image: image)),
+    );
+
+    if (!mounted || !widget.loadRecentSearches) return;
+
+    await _loadRecentSearches();
+  }
+
+  void _goToHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HistoryPage()),
     );
   }
 
@@ -110,7 +126,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const Spacer(),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: _goToHistory,
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: const Size(46, 32),
@@ -134,7 +150,12 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-      bottomNavigationBar: const LensBottomNavigation(currentIndex: 0),
+      bottomNavigationBar: LensBottomNavigation(
+        currentIndex: 0,
+        onTap: (index) {
+          if (index == 1) _goToHistory();
+        },
+      ),
     );
   }
 }
@@ -328,7 +349,12 @@ class _RecentSearchTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.border),
             ),
-            child: const Icon(Icons.history, color: Colors.black, size: 22),
+            child: search.imageUrl.isEmpty
+                ? const Icon(Icons.history, color: Colors.black, size: 22)
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(search.imageUrl, fit: BoxFit.cover),
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(

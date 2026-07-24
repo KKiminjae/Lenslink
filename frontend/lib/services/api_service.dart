@@ -28,7 +28,7 @@ class ApiService {
   }
 
   Future<List<RecentSearch>> getRecentSearches() async {
-    final response = await _dio.get("/api/searches/history");
+    final response = await _dio.get("/api/searches/history/recent");
     final data = response.data;
 
     if (data is! List) {
@@ -40,4 +40,41 @@ class ApiService {
         .map((item) => RecentSearch.fromJson(Map<String, dynamic>.from(item)))
         .toList();
   }
+
+  Future<SearchHistoryPage> getSearchHistory({
+    required int page,
+    int size = 30,
+  }) async {
+    final response = await _dio.get(
+      "/api/searches/history",
+      queryParameters: {"page": page, "size": size},
+    );
+    final data = response.data;
+
+    if (data is! Map) {
+      return const SearchHistoryPage(searches: [], last: true);
+    }
+
+    final content = data["content"];
+
+    return SearchHistoryPage(
+      searches: content is List
+          ? content
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      RecentSearch.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList()
+          : [],
+      last: data["last"] ?? true,
+    );
+  }
+}
+
+class SearchHistoryPage {
+  final List<RecentSearch> searches;
+  final bool last;
+
+  const SearchHistoryPage({required this.searches, required this.last});
 }

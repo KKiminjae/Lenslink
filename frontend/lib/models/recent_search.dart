@@ -3,6 +3,7 @@ class RecentSearch {
   final String brand;
   final String productName;
   final String searchKeyword;
+  final String imageUrl;
   final DateTime? createdAt;
 
   const RecentSearch({
@@ -10,6 +11,7 @@ class RecentSearch {
     required this.brand,
     required this.productName,
     required this.searchKeyword,
+    required this.imageUrl,
     required this.createdAt,
   });
 
@@ -19,6 +21,7 @@ class RecentSearch {
       brand: json["brand"] ?? "",
       productName: json["productName"] ?? "",
       searchKeyword: json["searchKeyword"] ?? "",
+      imageUrl: json["imageUrl"] ?? "",
       createdAt: _parseDateTime(json["createdAt"]),
     );
   }
