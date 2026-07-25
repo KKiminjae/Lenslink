@@ -339,3 +339,104 @@ import java.awt.print.Pageable;
 ```
 
 ---
+
+## 11.
+
+### 문제
+
+IntelliJ에서 Spring Boot를 실행했을 때
+
+UnknownHostException: mysql
+
+오류가 발생하였다.
+
+### 원인
+
+Spring Boot는 Docker 밖(Mac)에서 실행되고 있었다.
+
+하지만 datasource가
+
+jdbc:mysql://mysql:3306
+
+으로 설정되어 있었다.
+
+mysql은 Docker Network 내부에서만 사용할 수 있는 서비스 이름이다.
+
+### 해결
+
+IntelliJ 실행 시
+
+jdbc:mysql://localhost:3307
+
+을 사용하도록 변경하였다.
+
+Docker 실행 시에는
+
+jdbc:mysql://mysql:3306
+
+을 사용하도록 Spring Profile을 적용하였다.
+
+---
+
+## 2. 포트 충돌
+
+### 문제
+
+docker compose up 실행 시
+
+Bind for 0.0.0.0:8080 failed
+
+오류가 발생하였다.
+
+### 원인
+
+IntelliJ에서 실행 중인 Spring Boot가 이미 8080 포트를 사용하고 있었다.
+
+Docker App 컨테이너도 동일한 포트를 사용하려고 하면서 충돌이 발생하였다.
+
+### 해결
+
+개발 단계에서는
+
+- Spring Boot : IntelliJ 실행
+- MySQL : Docker 실행
+
+방식을 사용하였다.
+
+---
+
+## 3. 데이터가 삭제되는 문제
+
+### 문제
+
+docker compose down 이후
+
+기존 검색 기록이 모두 사라졌다.
+
+### 원인
+
+MySQL 데이터가 컨테이너 내부에만 저장되고 있었다.
+
+### 해결
+
+Docker Named Volume을 적용하였다.
+
+이후 컨테이너를 삭제하고 다시 생성해도 데이터가 유지되는 것을 확인하였다.
+
+---
+
+## 4. 환경별 datasource 변경
+
+### 문제
+
+Docker 실행과 IntelliJ 실행 시 datasource 주소가 달랐다.
+
+매번 application.yaml을 수정해야 했다.
+
+### 해결
+
+application-local.yaml
+
+application-docker.yaml
+
+을 추가하고 Spring Profile을 적용하여 실행 환경에 따라 datasource를 자동으로 선택하도록 변경하였다.
