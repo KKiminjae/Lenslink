@@ -133,3 +133,73 @@ JSON Response
 - Pageable 기반 페이지네이션
 - 기본 30개 조회
 - createdAt DESC 정렬
+
+## Docker 환경 구성
+
+### 목표
+
+개발 환경과 Docker 환경을 분리하여 동일한 애플리케이션을 실행할 수 있도록 구성하였다.
+
+또한 MySQL 데이터 영속성, 컨테이너 실행 순서, 환경별 설정 분리를 적용하여 운영 환경에 가까운 구조를 만들었다.
+
+---
+
+### 시스템 구조
+
+IntelliJ(Local)
+
+Spring Boot
+│
+localhost:3307
+│
+Docker MySQL
+
+---
+
+Docker Compose
+
+Spring Container
+│
+mysql:3306
+│
+MySQL Container
+│
+Docker Volume
+
+---
+
+### 구성 요소
+
+### Docker Volume
+
+MySQL 데이터 디렉터리(`/var/lib/mysql`)를 Docker Named Volume과 연결하였다.
+
+이를 통해 컨테이너가 삭제되더라도 데이터베이스 데이터는 유지된다.
+
+---
+
+### Health Check
+
+MySQL 컨테이너가 실행되는 것만으로는 실제 DB 연결이 가능한 상태를 보장하지 않는다.
+
+Health Check를 통해 MySQL이 정상적으로 준비된 이후에 Spring Boot가 실행되도록 구성하였다.
+
+---
+
+### Spring Profile
+
+환경별 설정을 분리하기 위해 Spring Profile을 적용하였다.
+
+application.yaml
+
+공통 설정
+
+application-local.yaml
+
+IntelliJ 개발 환경
+
+application-docker.yaml
+
+Docker 실행 환경
+
+환경에 따라 datasource 설정을 자동으로 선택하도록 구성하였다.
