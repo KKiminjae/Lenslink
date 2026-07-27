@@ -13,3 +13,11 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+openai:
+  api:
+    key: dummy
+
+naver:
+  client-id: dummy
+  client-secret: dummy
