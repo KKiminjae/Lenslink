@@ -44,11 +44,10 @@ class SearchCandidateGeneratorTest {
 
         assertEquals(
                 List.of(
-                        "Nike Air Force 1",
-                        "Air Force 1",
-                        "Air Force 1 '07",
-                        "Air Force Low",
-                        "Nike"
+                        "air force 1",
+                        "air force 1 07",
+                        "air force low",
+                        "nike air force 1"
                 ),
                 candidates
         );
@@ -103,8 +102,8 @@ class SearchCandidateGeneratorTest {
                         ))
                         .build();
         List<String> candidates = generator.createCandidates(analyzeResponse);
-        assertThat(candidates.size()).isEqualTo(3);
-        assertEquals(List.of("Nike Air Force 1", "Air Force 1", "Nike"),candidates);
+        assertThat(candidates.size()).isEqualTo(2);
+        assertEquals(List.of("air force 1", "nike air force 1"),candidates);
     }
 
     @Test
@@ -115,7 +114,7 @@ class SearchCandidateGeneratorTest {
                         .productName("Air Force 1")
                         .build();
         List<String> candidates = generator.createCandidates(analyzeResponse);
-        assertEquals(List.of("nike air force 1", "air force 1", "nike"), candidates);
+        assertEquals(List.of("air force 1", "nike air force 1"), candidates);
     }
 
 

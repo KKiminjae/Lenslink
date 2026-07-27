@@ -486,3 +486,43 @@ Spring Profile을 적용하여 환경별 설정 파일을 분리하고 실행 �
 - 설정 수정 없이 환경 변경 가능
 - 유지보수성 향상
 - 운영 환경 확장 용이
+
+---
+
+# GitHub Actions CI 구축
+
+## Spring Profile을 분리한 이유
+
+환경마다 데이터베이스 주소와 설정이 다르다.
+
+- Local : localhost:3307
+- Docker : mysql:3306
+- GitHub Actions : localhost:3306
+
+하나의 application.yaml로 관리하면 환경마다 설정을 계속 수정해야 하므로
+application-local, application-docker, application-test로 분리하였다.
+
+---
+
+## GitHub Actions에서 MySQL Service를 사용한 이유
+
+실제 프로젝트는 MySQL을 사용한다.
+
+테스트 환경에서도 동일한 데이터베이스를 사용하여
+로컬 환경과 최대한 동일한 조건에서 테스트하기 위해
+GitHub Actions Service Container를 사용하였다.
+
+H2를 사용하는 것보다 운영 환경과의 차이를 줄일 수 있다.
+
+---
+
+## Test Profile에 Dummy API Key를 사용한 이유
+
+Context Load 테스트에서는 실제 OpenAI API와
+Naver Shopping API를 호출하지 않는다.
+
+하지만 Bean 생성 과정에서 @Value가
+프로퍼티를 읽기 때문에 값은 반드시 존재해야 한다.
+
+실제 API Key를 저장소에 저장하지 않기 위해
+Dummy 값을 사용하였다.

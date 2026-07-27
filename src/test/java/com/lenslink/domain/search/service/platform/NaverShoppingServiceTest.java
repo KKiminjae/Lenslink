@@ -11,16 +11,24 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.IOException;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class NaverShoppingServiceTest {
     private MockWebServer mockWebServer; //naver에서 받아온 서버 대체
     private NaverShoppingService naverShoppingService;
+    @Mock
     private SearchResultEvaluator searchResultEvaluator;
+    @Mock
     private SearchCandidateGenerator candidateGenerator;
 
     @BeforeEach
@@ -31,6 +39,7 @@ class NaverShoppingServiceTest {
         WebClient webClient = WebClient.builder()
                 .baseUrl(mockWebServer.url("/").toString())
                 .build();
+
         naverShoppingService = new NaverShoppingService(webClient,searchResultEvaluator,candidateGenerator);
     }
     @AfterEach
@@ -48,7 +57,8 @@ class NaverShoppingServiceTest {
                       "mallName":"ABC Mall",
                       "lprice":"39000",
                       "link":"https://test.com",
-                      "image":"https://image.com"
+                      "image":"https://image.com",
+                      "productType":"1"
                     }
                   ]
                 }
@@ -63,6 +73,12 @@ class NaverShoppingServiceTest {
                 .brand("Nike")
                 .productName("T-shirt")
                 .build();
+
+        when(candidateGenerator.createCandidates(any()))
+                .thenReturn(List.of("Nike"));
+        when(searchResultEvaluator.isGoodResult(any(), any()))
+                .thenReturn(true);
+
         List<ProductResponse> result = naverShoppingService.search(analyzeResponse);
         Assertions.assertThat(result).hasSize(1);
 
@@ -90,6 +106,8 @@ class NaverShoppingServiceTest {
                 .brand("Nike")
                 .productName("T-Shirt")
                 .build();
+        when(candidateGenerator.createCandidates(any()))
+                .thenReturn(List.of("Nike"));
         List<ProductResponse> result = naverShoppingService.search(analyzeResponse);
         Assertions.assertThat(result).isEmpty();
     }
