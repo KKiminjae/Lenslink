@@ -15,8 +15,7 @@ spring:
         format_sql: true
 
 openai:
-  api:
-    key: dummy
+  api-key: dummy
 
 naver:
   client-id: dummy
