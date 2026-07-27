@@ -203,3 +203,44 @@ application-docker.yaml
 Docker 실행 환경
 
 환경에 따라 datasource 설정을 자동으로 선택하도록 구성하였다.
+
+---
+
+# GitHub Actions CI
+
+## CI 흐름
+
+Developer
+│
+▼
+Git Push
+│
+▼
+GitHub Actions
+│
+├── Checkout Source
+├── Setup JDK 21
+├── Start MySQL Service
+├── Activate Test Profile
+├── Gradle Build
+└── Run Tests
+│
+▼
+Build Success
+
+---
+
+## Spring Profile 구조
+
+application.yaml
+│
+├──────────────┬──────────────┐
+▼              ▼              ▼
+application-local  application-docker  application-test
+│              │               │
+▼              ▼               ▼
+localhost:3307     mysql:3306     localhost:3306
+
+- local : 로컬 IntelliJ 실행
+- docker : Docker Compose 실행
+- test : GitHub Actions CI

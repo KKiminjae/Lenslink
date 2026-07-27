@@ -440,3 +440,53 @@ application-local.yaml
 application-docker.yaml
 
 을 추가하고 Spring Profile을 적용하여 실행 환경에 따라 datasource를 자동으로 선택하도록 변경하였다.
+
+---
+
+
+## 12.
+
+### 원인
+
+GitHub Actions에는 MySQL이 존재하지 않아
+Datasource 생성에 실패하였다.
+
+### 해결
+
+- GitHub Actions Service에 MySQL 추가
+- application-test.yaml 생성
+- SPRING_PROFILES_ACTIVE=test 적용
+
+---
+
+## 13.
+
+### 원인
+
+ports가 env 내부에 잘못 작성되어
+Workflow YAML 파싱에 실패하였다.
+
+### 해결
+
+ports를 env 밖으로 이동하여
+GitHub Actions 문법에 맞게 수정하였다.
+
+---
+
+## 14.
+
+### 원인
+
+GitHub Actions가 Local Profile을 사용하여
+잘못된 Database 설정을 읽고 있었다.
+
+### 해결
+
+application-test.yaml을 생성하고
+
+```yaml
+env:
+  SPRING_PROFILES_ACTIVE: test
+```
+
+를 적용하여 CI 환경에서 Test Profile을 사용하도록 수정하였다.
