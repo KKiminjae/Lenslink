@@ -39,3 +39,5 @@ out/
 # Ignore secrets
 src/main/resources/application.yaml
 
+.env
+

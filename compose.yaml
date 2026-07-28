@@ -6,7 +6,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: test1234
       MYSQL_DATABASE: lenslink
-      SPRING_PROFIES_ACTIVE: docker
 
     ports:
       - "3307:3306"
@@ -28,6 +27,16 @@ services:
         condition: service_healthy
 
     restart: unless-stopped
+
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+
+      OPEN_API_KEY: ${OPEN_API_KEY}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
 
     ports:
       - "8080:8080"
