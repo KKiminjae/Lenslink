@@ -206,28 +206,48 @@ Docker 실행 환경
 
 ---
 
-# GitHub Actions CI
+# CI/CD Architecture
 
-## CI 흐름
+## 전체 배포 흐름
 
+```text
 Developer
-│
-▼
-Git Push
-│
-▼
-GitHub Actions
-│
-├── Checkout Source
-├── Setup JDK 21
-├── Start MySQL Service
-├── Activate Test Profile
-├── Gradle Build
-└── Run Tests
-│
-▼
-Build Success
+    │
+git push (main)
+    │
+    ▼
+GitHub Actions (CI)
+    │
+    ├─ Checkout
+    ├─ JDK 설정
+    ├─ Gradle Test
+    ├─ Docker Image Build
+    └─ GHCR Push
+             │
+             ▼
+GitHub Actions (CD)
+    │
+    ├─ SSH to EC2
+    ├─ docker compose pull
+    └─ docker compose up -d
+             │
+             ▼
+EC2
+    │
+Docker Container
+    │
+Spring Boot
+    │
+MySQL
+```
 
+## 구성 요소
+
+- GitHub Actions : CI/CD 파이프라인
+- GHCR : Docker 이미지 저장소
+- EC2 : 서비스 실행 서버
+- Docker Compose : 컨테이너 관리
+- MySQL : 데이터베이스
 ---
 
 ## Spring Profile 구조
