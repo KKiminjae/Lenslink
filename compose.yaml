@@ -19,7 +19,7 @@ services:
       timeout: 5s
       retries: 5
   app:
-    build: .
+    image: ghcr.io/kkiminjae/linklink:latest
     container_name: lenslink-app
 
     depends_on:
