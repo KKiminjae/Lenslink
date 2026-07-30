@@ -38,8 +38,19 @@ services:
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
 
+    expose:
+      - "8080"
+
+  nginx:
+    image: nginx:latest
+    container_name: lenslink-nginx
     ports:
-      - "8080:8080"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
 
 volumes:
   mysql-data:
