@@ -562,3 +562,66 @@ GitHub Actions에서 이미지를 빌드한 후 GHCR에 저장하고, EC2에서�
 
 - GHCR 관리가 필요하다.
 - Docker Registry 인증을 추가해야 한다.
+
+---
+
+## Nginx Reverse Proxy를 도입한 이유
+
+## 배경
+
+기존에는 사용자가 Spring Boot(8080)에 직접 접근하는 구조였다.
+
+운영 환경에서는 일반적으로 웹 서버(Nginx)를 통해 요청을 처리한 후
+애플리케이션 서버(Spring Boot)로 전달하는 구조를 사용한다.
+
+---
+
+## 선택한 설계
+
+Browser
+
+↓
+
+Nginx
+
+↓
+
+Spring Boot
+
+---
+
+## 선택 이유
+
+### 1. 운영 환경과 동일한 구조
+
+실제 서비스에서 가장 많이 사용하는 Reverse Proxy 구조를 적용하였다.
+
+---
+
+### 2. Spring Boot 외부 노출 제거
+
+Spring Boot는 expose를 사용하여 Docker 내부에서만 접근 가능하도록 변경하였다.
+
+외부에서는 Nginx만 접근 가능하다.
+
+---
+
+### 3. 향후 확장성 확보
+
+Nginx를 사용하면 다음 기능을 쉽게 추가할 수 있다.
+
+- HTTPS
+- SSL 인증서
+- 정적 파일 제공
+- Gzip 압축
+- Rate Limiting
+- Load Balancing
+
+---
+
+## Trade-off
+
+Nginx 컨테이너가 하나 추가되므로 구성은 조금 복잡해진다.
+
+하지만 운영 환경과 동일한 구조를 만들 수 있고,
+보안성과 확장성이 크게 향상된다.

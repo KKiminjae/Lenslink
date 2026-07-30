@@ -490,3 +490,28 @@ env:
 ```
 
 를 적용하여 CI 환경에서 Test Profile을 사용하도록 수정하였다.
+
+---
+
+## 15.
+
+curl http://localhost
+
+실행 시
+
+404 Not Found
+
+### 원인
+
+GET / 를 처리하는 Controller가 존재하지 않았다.
+
+Reverse Proxy는 정상적으로 동작하고 있었으며,
+Spring Boot가 404 응답을 반환한 것이다.
+
+### 해결
+
+실제 API
+
+-> GET /api/searches/history
+를 호출하여 Reverse Proxy가 정상 동작하는 것을 확인하였다.
+
