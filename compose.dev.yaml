@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8.4
-    container_name: lenslink-mysql
+    container_name: lenslink-mysql-dev
 
     environment:
       MYSQL_ROOT_PASSWORD: test1234
@@ -19,8 +19,8 @@ services:
       timeout: 5s
       retries: 5
   app:
-    image: ghcr.io/kkiminjae/linklink:latest
-    container_name: lenslink-app
+    build: .
+    container_name: lenslink-app-dev
 
     depends_on:
       mysql:
@@ -42,7 +42,7 @@ services:
       - "8080"
 
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health" ]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,7 +50,7 @@ services:
 
   nginx:
     image: nginx:latest
-    container_name: lenslink-nginx
+    container_name: lenslink-nginx-dev
     ports:
       - "80:80"
     volumes:
@@ -58,6 +58,7 @@ services:
     depends_on:
       app:
         condition: service_healthy
+
     restart: unless-stopped
 
 volumes:

@@ -252,6 +252,7 @@ MySQL
 
 ## Spring Profile 구조
 
+```
 application.yaml
 │
 ├──────────────┬──────────────┐
@@ -260,7 +261,122 @@ application-local  application-docker  application-test
 │              │               │
 ▼              ▼               ▼
 localhost:3307     mysql:3306     localhost:3306
+```
 
 - local : 로컬 IntelliJ 실행
 - docker : Docker Compose 실행
 - test : GitHub Actions CI
+
+---
+
+# Nginx Reverse Proxy 구조
+
+## 기존 구조
+
+Browser
+
+↓
+
+Spring Boot (8080)
+
+↓
+
+MySQL
+
+---
+
+## 변경 후 구조
+
+Browser
+
+↓
+
+Nginx (80)
+
+↓
+
+Spring Boot (8080)
+
+↓
+
+MySQL
+
+---
+
+## 요청 흐름
+
+1. 사용자가 HTTP 요청을 보낸다.
+2. Nginx가 80번 포트에서 요청을 수신한다.
+3. Nginx가 Spring Boot(app:8080)로 요청을 전달한다.
+4. Spring Boot가 비즈니스 로직을 처리한다.
+5. 필요한 경우 MySQL에 접근한다.
+6. 응답을 Nginx를 통해 사용자에게 반환한다.
+
+---
+
+## Docker Compose 구조
+
+- nginx
+    - 외부 요청 수신
+    - Reverse Proxy 수행
+
+- app
+    - Spring Boot 애플리케이션
+    - Docker 내부 네트워크에서만 접근(expose)
+
+- mysql
+    - 데이터 저장
+
+Browser
+
+↓
+
+Spring Boot (8080)
+
+↓
+
+MySQL
+
+---
+
+## 변경 후 구조
+
+Browser
+
+↓
+
+Nginx (80)
+
+↓
+
+Spring Boot (8080)
+
+↓
+
+MySQL
+
+---
+
+## 요청 흐름
+
+1. 사용자가 HTTP 요청을 보낸다.
+2. Nginx가 80번 포트에서 요청을 수신한다.
+3. Nginx가 Spring Boot(app:8080)로 요청을 전달한다.
+4. Spring Boot가 비즈니스 로직을 처리한다.
+5. 필요한 경우 MySQL에 접근한다.
+6. 응답을 Nginx를 통해 사용자에게 반환한다.
+
+---
+
+## Docker Compose 구조
+
+- nginx
+    - 외부 요청 수신
+    - Reverse Proxy 수행
+
+- app
+    - Spring Boot 애플리케이션
+    - Docker 내부 네트워크에서만 접근(expose)
+
+- mysql
+    - 데이터 저장
