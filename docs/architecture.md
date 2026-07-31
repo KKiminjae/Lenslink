@@ -380,3 +380,39 @@ MySQL
 
 - mysql
     - 데이터 저장
+
+---
+
+## 운영 환경 HTTPS 구조
+
+LensLink 운영 환경은 Nginx가 외부 HTTPS 연결을 처리하고,
+Spring Boot는 Docker 내부 네트워크에서 HTTP 요청을 처리한다.
+
+```text
+Client
+  │
+  │ HTTPS : 443
+  ▼
+lenslink.kro.kr
+  │
+  ▼
+DNS A Record
+  │
+  ▼
+Elastic IP
+43.202.185.252
+  │
+  ▼
+EC2
+  │
+  ▼
+Nginx
+  │
+  │ HTTP : 8080
+  ▼
+Spring Boot
+  │
+  ▼
+MySQL
+```
+

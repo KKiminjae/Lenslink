@@ -515,3 +515,165 @@ Spring Boot가 404 응답을 반환한 것이다.
 -> GET /api/searches/history
 를 호출하여 Reverse Proxy가 정상 동작하는 것을 확인하였다.
 
+---
+
+## 16
+
+### 증상
+
+운영 Compose 실행 시 MySQL은 종료되고,
+Spring Boot 앱은 재시작을 반복했으며 Nginx는 시작되지 않았다.
+
+```text
+lenslink-mysql   Exited (137)
+lenslink-app     Restarting
+lenslink-nginx   Created
+```
+
+Spring Boot 로그에는 다음 오류가 나타났다.
+
+```text
+Communications link failure
+UnknownHostException: mysql
+Unable to determine Dialect without JDBC metadata
+```
+
+### 초기 가설
+
+- JDBC URL 누락
+- 데이터베이스 비밀번호 불일치
+- Docker 네트워크 설정 오류
+- `mysql` 서비스명 DNS 해석 실패
+
+### 확인 과정
+
+컨테이너 상태를 확인했다.
+
+```bash
+docker inspect lenslink-mysql \
+  --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}'
+```
+
+결과:
+
+```text
+status=exited
+exit=137
+oom=true
+```
+
+EC2 메모리 상태도 확인했다.
+
+```bash
+free -h
+```
+
+EC2 RAM은 약 1GB였고 Swap은 설정되어 있지 않았다.
+
+### 원인
+
+EC2 메모리가 부족하여 Linux OOM Killer가
+MySQL 프로세스를 강제 종료했다.
+
+MySQL이 종료되면서 컨테이너의 네트워크 엔드포인트가 사라졌고,
+Spring Boot가 `mysql` 서비스명을 해석하지 못했다.
+
+```text
+메모리 부족
+→ MySQL OOM 종료
+→ mysql 네트워크 주소 제거
+→ Spring Boot DB 연결 실패
+→ app unhealthy
+→ nginx 시작 실패
+```
+
+Hibernate의 Dialect 오류는 최초 원인이 아니었다.
+
+데이터베이스 연결 실패로 인해 DB 메타데이터를 읽지 못하면서
+추가로 발생한 2차 오류였다.
+
+### 해결
+
+EC2에 2GB Swap을 추가했다.
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+```
+
+재부팅 후에도 유지되도록 `/etc/fstab`에 다음 설정을 추가했다.
+
+```text
+/swapfile none swap sw 0 0
+```
+
+이후 Compose를 다시 실행하여
+MySQL, Spring Boot, Nginx가 정상 상태가 되는 것을 확인했다.
+
+### 운영 관점
+
+Swap은 장애를 완화하는 안전장치이지
+근본적인 성능 해결책은 아니다.
+
+트래픽 증가 시 다음 대안을 검토해야 한다.
+
+- RAM 2GB 이상 인스턴스로 변경
+- MySQL을 RDS로 분리
+- JVM Heap 크기 제한
+- MySQL 메모리 설정 최적화
+- 메모리 사용량 모니터링 및 알림 추가
+
+---
+
+## 17
+
+### 증상
+
+Spring Boot 애플리케이션은 실행됐지만
+Docker health check가 계속 실패했다.
+
+### 원인
+
+Compose의 `app` 서비스는 `build:`가 아니라
+원격 `image:`를 사용하고 있었다.
+
+```yaml
+image: ghcr.io/kkiminjae/linklink:latest
+```
+
+따라서 다음 명령의 `--build`는 앱 이미지를 새로 빌드하지 않았다.
+
+```bash
+docker compose up --build -d
+```
+
+로컬 Docker 또는 EC2에 남아 있던
+이전 `latest` 이미지가 계속 사용됐다.
+
+### 해결
+
+최신 GHCR 이미지를 명시적으로 내려받았다.
+
+```bash
+docker compose -f compose.yaml pull
+docker compose -f compose.yaml up -d
+```
+
+### 교훈
+
+`build:` 서비스와 `image:` 서비스의 배포 방식은 다르다.
+
+```text
+build:
+→ 로컬 Dockerfile로 이미지 생성
+
+image:
+→ 레지스트리에서 이미지 pull
+```
+
+`image:`만 사용하는 서비스는
+`--build`만으로 최신 이미지가 갱신되지 않는다.
+
+---

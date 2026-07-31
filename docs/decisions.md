@@ -625,3 +625,98 @@ Nginx 컨테이너가 하나 추가되므로 구성은 조금 복잡해진다.
 
 하지만 운영 환경과 동일한 구조를 만들 수 있고,
 보안성과 확장성이 크게 향상된다.
+
+---
+
+## HTTPS 처리를 Spring Boot가 아닌 Nginx에서 수행
+
+### 결정
+
+외부 HTTPS 연결은 Nginx에서 종료하고,
+Nginx와 Spring Boot 사이에서는 Docker 내부 HTTP 통신을 사용한다.
+
+```text
+Client
+  │ HTTPS
+  ▼
+Nginx
+  │ HTTP
+  ▼
+Spring Boot
+```
+
+### 선택 이유
+
+- 인증서 관리 지점을 Nginx 한 곳으로 집중할 수 있다.
+- Spring Boot 애플리케이션과 TLS 설정의 책임을 분리할 수 있다.
+- 인증서 갱신 시 Spring Boot 애플리케이션을 재배포할 필요가 없다.
+- HTTP에서 HTTPS로의 리다이렉트를 Nginx에서 처리할 수 있다.
+- 향후 여러 애플리케이션이나 서버 인스턴스로 확장하기 쉽다.
+- 로드밸런싱, 압축, 캐싱 등의 기능을 Nginx에서 추가할 수 있다.
+
+### 대안
+
+Spring Boot의 내장 Tomcat에 인증서와 keystore를 설정하여
+애플리케이션이 HTTPS를 직접 처리할 수도 있다.
+
+하지만 이 방식은 인증서 관리가 애플리케이션 설정과 결합된다.
+
+서비스가 늘어날수록 인증서 배포 및 갱신 지점도 증가하므로,
+현재 구조에서는 Nginx TLS Termination 방식이 운영 복잡도를 낮춘다고 판단했다.
+
+---
+
+## Certbot을 Docker 컨테이너로 실행
+
+### 결정
+
+EC2 운영체제에 Certbot을 직접 설치하지 않고
+`certbot/certbot` Docker 이미지를 사용한다.
+
+### 선택 이유
+
+- 현재 운영 환경이 Docker Compose 기반이다.
+- EC2 운영체제에 별도 패키지를 설치하지 않아도 된다.
+- Certbot 실행 환경을 Compose 설정으로 재현할 수 있다.
+- Nginx와 Docker volume을 통해 검증 파일과 인증서를 공유하기 쉽다.
+- 인증서 발급과 갱신 작업 후 일회성 컨테이너를 삭제할 수 있다.
+
+### 트레이드오프
+
+Certbot 컨테이너는 상시 실행되지 않는다.
+
+따라서 인증서 자동 갱신을 위해 cron과 같은
+별도의 스케줄링 방식이 필요하다.
+
+---
+
+## 인증서와 검증 파일을 Docker named volume에 저장
+
+### 결정
+
+다음 두 named volume을 사용한다.
+
+```text
+certbot-webroot
+letsencrypt
+```
+
+### 선택 이유
+
+- 컨테이너 재생성 후에도 인증서가 유지된다.
+- Certbot과 Nginx가 동일한 파일을 공유할 수 있다.
+- 개인키가 프로젝트 디렉터리와 Git 저장소에 포함되지 않는다.
+- Nginx에는 읽기 전용 권한만 부여할 수 있다.
+
+### 권한 설계
+
+```text
+Certbot
+→ 검증 파일과 인증서 쓰기 가능
+
+Nginx
+→ 검증 파일과 인증서 읽기 전용
+```
+
+최소 권한 원칙에 따라 Nginx가 사용하는 volume에는
+`:ro` 옵션을 적용했다.
