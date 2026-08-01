@@ -26,6 +26,8 @@ services:
     image: ghcr.io/kkiminjae/linklink:${IMAGE_TAG}
     container_name: lenslink-app
 
+    mem_limit: 384m
+
     depends_on:
       mysql:
         condition: service_healthy
@@ -41,6 +43,11 @@ services:
       OPEN_API_KEY: ${OPEN_API_KEY}
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
+
+      JAVA_TOOL_OPTIONS: >-
+        -XX:InitialRAMPercentage=10
+        -XX:MaxRAMPercentage=60
+        -XX:+ExitOnOutOfMemoryError
 
     expose:
       - "8080"
