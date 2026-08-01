@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/lenslink
-    username: root
-    password: test1234
+    username: lenslink
+    password: test
 
   jpa:
     hibernate:
