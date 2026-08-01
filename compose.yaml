@@ -4,8 +4,10 @@ services:
     container_name: lenslink-mysql
 
     environment:
-      MYSQL_ROOT_PASSWORD: test1234
-      MYSQL_DATABASE: lenslink
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
 
     ports:
       - "3307:3306"
@@ -14,12 +16,14 @@ services:
       - mysql-data:/var/lib/mysql
 
     healthcheck:
-      test: ["CMD" , "mysqladmin" , "ping", "-h", "localhost", "-uroot", "-ptest1234"]
+      test:
+        ["CMD-SHELL" ,
+         "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 10s
       timeout: 5s
       retries: 5
   app:
-    image: ghcr.io/kkiminjae/linklink:latest
+    image: ghcr.io/kkiminjae/linklink:${IMAGE_TAG}
     container_name: lenslink-app
 
     depends_on:
