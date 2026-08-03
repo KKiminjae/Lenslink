@@ -271,7 +271,7 @@ localhost:3307     mysql:3306     localhost:3306
 
 # Nginx Reverse Proxy 구조
 
-## 기존 구조
+## 기본구조
 
 Browser
 
@@ -327,88 +327,18 @@ MySQL
 - mysql
     - 데이터 저장
 
-Browser
-
-↓
-
-Spring Boot (8080)
-
-↓
-
-MySQL
-
 ---
 
-## 변경 후 구조
+## 운영 배포 구조
 
-Browser
-
-↓
-
-Nginx (80)
-
-↓
-
-Spring Boot (8080)
-
-↓
-
-MySQL
-
----
-
-## 요청 흐름
-
-1. 사용자가 HTTP 요청을 보낸다.
-2. Nginx가 80번 포트에서 요청을 수신한다.
-3. Nginx가 Spring Boot(app:8080)로 요청을 전달한다.
-4. Spring Boot가 비즈니스 로직을 처리한다.
-5. 필요한 경우 MySQL에 접근한다.
-6. 응답을 Nginx를 통해 사용자에게 반환한다.
-
----
-
-## Docker Compose 구조
-
-- nginx
-    - 외부 요청 수신
-    - Reverse Proxy 수행
-
-- app
-    - Spring Boot 애플리케이션
-    - Docker 내부 네트워크에서만 접근(expose)
-
-- mysql
-    - 데이터 저장
-
----
-
-## 운영 환경 HTTPS 구조
-
-LensLink 운영 환경은 Nginx가 외부 HTTPS 연결을 처리하고,
-Spring Boot는 Docker 내부 네트워크에서 HTTP 요청을 처리한다.
+LensLink 운영 환경은 EC2 한 대에서 Docker Compose로 구성한다.
 
 ```text
 Client
-  │
-  │ HTTPS : 443
-  ▼
-lenslink.kro.kr
-  │
-  ▼
-DNS A Record
-  │
-  ▼
-Elastic IP
-43.202.185.252
-  │
-  ▼
-EC2
-  │
+  │ HTTPS
   ▼
 Nginx
-  │
-  │ HTTP : 8080
+  │ HTTP
   ▼
 Spring Boot
   │
@@ -416,3 +346,32 @@ Spring Boot
 MySQL
 ```
 
+Certbot은 Let's Encrypt 인증서 발급과 갱신을 담당하며, Nginx와 인증서 디렉터리를 공유한다.
+
+### 컨테이너 역할
+
+* `nginx`
+
+  * HTTP 요청을 HTTPS로 리다이렉트한다.
+  * 외부 요청을 `app:8080`으로 전달한다.
+
+* `app`
+
+  * Spring Boot 애플리케이션을 실행한다.
+  * 이미지 분석, 상품 검색, 검색 기록 저장을 처리한다.
+
+* `mysql`
+
+  * 검색 기록 데이터를 저장한다.
+  * Docker Volume을 통해 데이터를 유지한다.
+
+* `certbot`
+
+  * HTTPS 인증서를 발급하고 갱신한다.
+  * 필요할 때 일회성 컨테이너로 실행된다.
+
+### 장애 시 요청 흐름
+
+Application 컨테이너가 중단되면 Nginx는 upstream에 연결하지 못해 `502 Bad Gateway`를 반환한다.
+
+MySQL 컨테이너가 중단되면 Application은 실행 상태를 유지하지만, DB를 사용하는 API는 연결 실패로 오류를 반환한다. MySQL이 복구되면 Application 재시작 없이 DB 연결이 다시 정상화된다.

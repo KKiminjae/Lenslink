@@ -677,3 +677,193 @@ image:
 `--build`만으로 최신 이미지가 갱신되지 않는다.
 
 ---
+
+## 18
+
+### 증상
+
+Application 컨테이너를 강제 종료한 뒤 다음 상태가 확인됐다.
+
+```text
+lenslink-app Exited (137)
+```
+
+외부에서 Health API를 호출했을 때 Nginx는 실행 중이었지만 Application에 연결하지 못해 `HTTP 502`를 반환했다.
+
+### 원인
+
+종료 코드 `137`은 `SIGKILL`로 강제 종료됐음을 의미한다.
+
+이번 테스트에서는 다음 명령으로 컨테이너를 직접 종료했다.
+
+```bash
+docker compose kill app
+```
+
+이 방식은 운영자가 Docker 명령으로 컨테이너를 명시적으로 중단한 상황이므로, 실제 JVM 크래시 상황과 동일하지 않다.
+
+### 복구
+
+다음 명령으로 Application 컨테이너를 수동 재시작했다.
+
+```bash
+docker compose up -d app
+```
+
+컨테이너가 시작된 직후에는 Spring Boot 초기화가 완료되지 않아 일시적으로 `HTTP 502`가 발생했다.
+
+Spring Boot가 완전히 기동한 뒤 Health API는 `HTTP 200`으로 복구됐다.
+
+### 확인 사항
+
+* Docker 컨테이너 시작과 애플리케이션 준비 완료는 동일하지 않다.
+* Nginx는 살아 있어도 upstream Application이 준비되지 않으면 `502 Bad Gateway`를 반환한다.
+* `docker compose kill`은 자동 재시작 정책 검증에 적합하지 않았다.
+* JVM 크래시나 OOM 기반 자동 재시작 테스트는 추후 별도로 수행한다.
+
+---
+
+## MySQL 컨테이너 장애 테스트
+
+### 증상
+
+MySQL 컨테이너를 중지한 상태에서 검색 기록 API를 호출했다.
+
+```bash
+docker compose stop mysql
+```
+
+DB를 사용하는 API는 응답까지 시간이 오래 걸렸고 최종적으로 `HTTP 500`을 반환했다.
+
+Application 로그에서는 DB 연결 실패 관련 예외와 긴 스택트레이스가 확인됐다.
+
+### 원인
+
+MySQL이 중지된 상태에서 Application이 DB 커넥션 획득을 시도했다.
+
+사용 가능한 커넥션을 얻지 못한 상태로 타임아웃까지 대기한 뒤 예외가 발생했다.
+
+```text
+API 요청
+→ DB 커넥션 획득 시도
+→ MySQL 연결 실패
+→ 커넥션 타임아웃
+→ HTTP 500
+```
+
+### 복구
+
+MySQL 컨테이너를 다시 시작했다.
+
+```bash
+docker compose start mysql
+```
+
+MySQL이 `healthy` 상태가 된 뒤 동일 API를 다시 호출하자 `HTTP 200`으로 복구됐다.
+
+Application 컨테이너는 재시작하지 않았다.
+
+### 확인 사항
+
+* MySQL이 중단돼도 Application 프로세스 자체는 계속 실행된다.
+* DB 의존 API만 실패할 수 있다.
+* MySQL 복구 후 HikariCP가 새 DB 연결을 확보해 Application 재시작 없이 정상화됐다.
+* DB 장애 시 즉시 실패하지 않고 커넥션 타임아웃까지 대기해 사용자 응답이 늦어질 수 있다.
+
+---
+
+## 19
+
+### 가벼운 API 반복 호출
+
+검색 기록 API를 총 360회 호출하며 Application 컨테이너 메모리를 확인했다.
+
+```text
+부하 전:       190.7MiB
+90회 후:       199.9MiB
+180회 후:      206MiB
+270회 후:      209MiB
+360회 후:      217MiB
+```
+
+총 증가량은 약 `26.3MiB`였다.
+
+요청 후 메모리는 즉시 감소하지 않았다.
+
+이는 JVM이 확보한 힙 또는 네이티브 메모리를 운영체제에 바로 반환하지 않는 정상 동작일 수 있으므로, 해당 결과만으로 메모리 누수라고 판단하지 않았다.
+
+### 실제 이미지 분석 API 호출
+
+실제 이미지 분석 API를 1회 호출한 뒤 Application 컨테이너 메모리가 약 `312MiB`까지 증가했다.
+
+```text
+Application memory limit: 384MiB
+관찰 메모리:             약 312MiB
+사용률:                  약 81%
+```
+
+추가 요청 없이 기다려도 `docker stats` 기준 메모리는 크게 감소하지 않았다.
+
+### 한계
+
+`docker stats`는 다음 메모리를 합친 컨테이너 전체 사용량만 제공한다.
+
+* JVM Heap
+* Metaspace
+* Direct Buffer
+* Thread Stack
+* JVM Native Memory
+
+따라서 실제 Java 객체가 남아 있는지, JVM이 메모리만 확보해 둔 상태인지는 구분할 수 없다.
+
+`/actuator/metrics/jvm.memory.used`는 `404`였고, 운영 컨테이너에는 `jcmd`가 포함돼 있지 않아 JVM 내부 메모리는 확인하지 못했다.
+
+### 결론
+
+* 가벼운 조회 API 반복 호출에서는 OOM이나 재시작이 발생하지 않았다.
+* 실제 이미지 분석 요청은 조회 API보다 훨씬 큰 메모리를 사용했다.
+* 현재 `384MiB` 제한은 단일 이미지 요청에서 약 81%까지 사용돼 운영 여유가 부족할 수 있다.
+* 현재 EC2는 약 1GB 메모리이며 Swap도 사용 중이므로 Application 제한만 단순히 증가시키는 것은 적절하지 않다.
+* 추후 이미지 크기 제한, 리사이징, 중복 `getBytes()` 및 Base64 생성 여부, 동시 요청 제한, JVM 내부 메트릭 수집을 검토한다.
+
+---
+
+## 20
+
+각 컨테이너의 로그 설정을 `docker inspect`로 확인했다.
+
+```text
+driver=json-file
+max-size=10m
+max-file=3
+```
+
+로그 파일 하나는 최대 `10MB`, 최대 3개까지 유지된다.
+
+이를 통해 Docker 로그의 무제한 증가와 EC2 디스크 고갈 위험을 줄였다.
+
+단, 로그 발생량이 많으면 과거 로그가 빠르게 삭제될 수 있으므로 장기 보관이 필요할 경우 중앙 로그 수집 시스템이 필요하다.
+
+---
+
+## 21
+
+Ubuntu 사용자 Cron에 다음 작업이 등록된 것을 확인했다.
+
+```text
+매일 03:00
+→ Certbot renew 실행
+→ 명령 성공 시 Nginx reload
+```
+
+다음 명령으로 인증서 모의 갱신을 검증했다.
+
+```bash
+docker compose run --rm certbot renew --dry-run
+```
+
+또한 `openssl s_client`로 현재 외부에 제공되는 인증서의 subject, issuer, 유효 시작일 및 만료일을 확인했다.
+
+이번 작업에서는 Cron을 새로 구성한 것이 아니라, 기존 자동 갱신 구성을 확인하고 검증했다.
+
+
