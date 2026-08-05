@@ -867,3 +867,41 @@ docker compose run --rm certbot renew --dry-run
 이번 작업에서는 Cron을 새로 구성한 것이 아니라, 기존 자동 갱신 구성을 확인하고 검증했다.
 
 
+---
+
+## 22
+
+### 테스트 DB 미실행
+
+MySQL이 꺼져 있으면 `contextLoads()`에서 Hibernate가 Dialect를 결정하지 못해 테스트가 실패했다.
+
+```bash
+docker compose \
+  -f compose.yaml \
+  -f compose.local.yaml \
+  up -d mysql
+```
+
+MySQL이 `healthy` 상태가 된 후 전체 테스트가 통과했다.
+
+장기적으로는 로컬 Docker 상태에 의존하지 않도록 Testcontainers 적용을 검토한다.
+
+### 로컬 코드 미반영
+
+Docker 이미지를 재빌드하지 않으면 변경된 코드가 컨테이너에 반영되지 않았다.
+
+```bash
+docker compose \
+  -f compose.yaml \
+  -f compose.local.yaml \
+  up -d --build
+```
+
+### `expose`와 `ports`
+
+* `expose`: 컨테이너 간 통신용
+* `ports`: 호스트에서 컨테이너로 직접 접근할 때 사용
+
+운영에서는 app 포트를 외부에 공개하지 않고, 로컬 환경에서만 `8080:8080`을 사용한다.
+
+---
