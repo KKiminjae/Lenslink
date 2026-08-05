@@ -768,3 +768,19 @@ Let's Encrypt 인증서는 유효기간이 제한돼 있어 갱신 작업이 실
 매일 오전 3시에 Certbot 갱신을 시도하고, 명령 성공 후 Nginx가 인증서를 다시 읽도록 reload하는 구조를 사용한다.
 
 `certbot renew --dry-run`으로 현재 설정에서 인증서 갱신 절차가 정상적으로 수행 가능한지 확인했다.
+
+---
+
+## 이미지 업로드 검증
+
+* 이미지 파일 최대 크기는 `5MB`로 제한한다.
+* multipart 요청 전체 크기는 오버헤드를 고려해 `6MB`로 제한한다.
+* Nginx도 `client_max_body_size 6M`으로 설정해 큰 요청을 애플리케이션 진입 전에 차단한다.
+* JPEG와 PNG만 허용한다.
+* 파일명과 `Content-Type`은 신뢰하지 않고 `ImageReader`로 실제 형식을 확인한다.
+* `ImageIO.read()`는 전체 이미지를 디코딩하므로 사용하지 않는다.
+* `ImageReader`로 전체 디코딩 없이 width와 height만 조회한다.
+* 가로 또는 세로가 `4096px`을 초과하면 거절한다.
+* 이미지 검증은 Base64 변환과 OpenAI 호출 전에 수행한다.
+
+--
