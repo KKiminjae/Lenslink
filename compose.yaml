@@ -61,6 +61,7 @@ services:
         -XX:MaxRAMPercentage=60
         -XX:+ExitOnOutOfMemoryError
 
+
     expose:
       - "8080"
 

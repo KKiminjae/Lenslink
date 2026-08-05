@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lenslink.domain.search.dto.AnalyzeResponse;
 import com.lenslink.domain.search.dto.OpenAi.OpenAIRequest;
 import com.lenslink.domain.search.dto.OpenAi.OpenAIResponse;
+import com.lenslink.domain.search.validator.ImageValidator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,10 +20,14 @@ import java.util.List;
 public class OpenAiService {
     private final WebClient openAiWebClient;
     private final ObjectMapper objectMapper;
+    private final ImageValidator imageValidator;
 
-    public OpenAiService(@Qualifier("openAiWebClient") WebClient openAiWebClient, ObjectMapper objectMapper) {
+    public OpenAiService(@Qualifier("openAiWebClient") WebClient openAiWebClient,
+                         ObjectMapper objectMapper,
+                         ImageValidator imageValidator) {
         this.openAiWebClient = openAiWebClient;
         this.objectMapper = objectMapper;
+        this.imageValidator = imageValidator;
     }
 
     private String convertToBase64(MultipartFile image){
@@ -35,6 +40,7 @@ public class OpenAiService {
     }
 
     public AnalyzeResponse analyzeImage(MultipartFile image){
+        imageValidator.validate(image);
 
         String base64Image = convertToBase64(image);
 
@@ -248,5 +254,5 @@ public class OpenAiService {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
-}
+    }
 }
