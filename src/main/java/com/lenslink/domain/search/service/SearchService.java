@@ -29,11 +29,8 @@ public class SearchService {
 
         List<ProductResponse> products = searchPlatformService.search(analyzeResponse);
 
-        System.out.println("products size = " + products.size());
-
         if(!products.isEmpty()){
             SearchHistory history = createSearchHistory(analyzeResponse, products.get(0));
-            System.out.println("history image = " + history.getImageUrl());
             repository.save(history);
         }
 
