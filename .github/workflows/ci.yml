@@ -6,6 +6,7 @@ on:
       - main
       - develop
       - "feature/**"
+      - "test/**"
 
 permissions:
   contents: read
@@ -14,22 +15,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_DATABASE: lenslink_test
-          MYSQL_USER: lenslink_test_user
-          MYSQL_PASSWORD: test_password
-          MYSQL_ROOT_PASSWORD: root-test-password
-        ports:
-          - "3306:3306"
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot-test-password"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
 
     steps:
       - uses: actions/checkout@v4
@@ -48,10 +33,6 @@ jobs:
         run: ./gradlew build
         env:
           SPRING_PROFILES_ACTIVE: test
-          TEST_DATABASE_URL: jdbc:mysql://127.0.0.1:3306/lenslink_test
-          TEST_DATABASE_USERNAME: lenslink_test_user
-          TEST_DATABASE_PASSWORD: test_password
-
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
