@@ -6,6 +6,7 @@ import com.lenslink.domain.search.dto.AnalyzeResponse;
 import com.lenslink.domain.search.dto.OpenAi.OpenAIRequest;
 import com.lenslink.domain.search.dto.OpenAi.OpenAIResponse;
 import com.lenslink.domain.search.validator.ImageValidator;
+import com.lenslink.global.exception.InvalidImageException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,7 +36,10 @@ public class OpenAiService {
             byte[] bytes = image.getBytes();
             return Base64.getEncoder().encodeToString(bytes);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new InvalidImageException(
+                    "이미지 파일을 읽는 중 오류가 발생했습니다.",
+                    e
+            );
         }
     }
 
