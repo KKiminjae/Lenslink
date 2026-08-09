@@ -177,9 +177,9 @@ List<AnalyzeResponse.SimilarProductResponse> similarProducts =
 new ArrayList<>(analyzeResponse.getSimilarProducts());
 
 similarProducts.sort(
-Comparator.comparingInt(
-AnalyzeResponse.SimilarProductResponse::getConfidence)
-.reversed());
+        Comparator.comparingInt(
+        AnalyzeResponse.SimilarProductResponse::getConfidence)
+        .reversed());
 ```
 
 ---
@@ -903,5 +903,105 @@ docker compose \
 * `ports`: 호스트에서 컨테이너로 직접 접근할 때 사용
 
 운영에서는 app 포트를 외부에 공개하지 않고, 로컬 환경에서만 `8080:8080`을 사용한다.
+
+---
+
+## 23
+## 로컬 빌드 시 Java 26 / Gradle 호환성 문제
+
+### 증상
+
+```text
+Unsupported class file major version 70
+```
+
+### 해결
+
+Gradle 실행 JVM을 Java 21로 변경했다.
+```text
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+export PATH="$JAVA_HOME/bin:$PATH"
+
+./gradlew --stop
+./gradlew --version
+```
+Gradle Launcher/Daemon JVM이 Java 21인 것을 확인 후 
+빌드를 다시 수행했다.
+
+### 교훈
+
+빌드 오류 발생 시 다음을 함께 확인한다.
+
+```text
+java -version
+./gradlew --version
+```
+
+---
+
+## 24
+## IntelliJ 로컬 실행 시 환경변수 미주입
+
+### 증상
+Spring Boot를 IntelliJ에서 직접 실행했을 때
+DB 계정 및 외부 API Key placeholder를 해석하지 못해 시작에 실패했다.
+
+예:
+
+```text
+Access denied for user '${SPRING_DATASOURCE_USERNAME}'
+Could not resolve placeholder 'OPEN_API_KEY'
+Could not resolve placeholder 'NAVER_CLIENT_ID'
+```
+
+### 원인
+
+.env는 Docker compose가 읽는 파일이며,
+IntelliJ에서 직접 실행한 Java 프로세스가 자동으로 읽지 않는다.
+
+### 해결
+
+IntelliJ의 LenslinkApplication Run Configuration에
+로컬 실행에 필요한 환경변수를 등록했다.
+
+### 교훈
+```text
+Docker Compose 실행
+→ .env 사용
+
+IntelliJ 직접 실행
+→ Run Configuration의 환경변수 사용
+```
+
+---
+
+## 25
+## Docker 빌드에서 Git repository를 찾지 못하는 문제
+
+### 증상
+
+```text
+No Git repository found.
+
+```
+
+### 원인
+
+gradle-git-properties는 .git 정보를 사용하지만
+Docker builder에는 .git 디렉터리를 복사하지 않는다.
+
+### 해결
+
+.git 전체를 Docker에 복사하지 않고,
+GitHub Actions의 commit SHA와 branch를 Docker build argument로 전달했다.
+
+Docker 내부에서는 전달받은 값으로 git.properties를 생성하고
+generateGitProperties task를 비활성화했다.
+
+### 교훈
+
+빌드 metadata는 소스 저장소 구조에 암묵적으로 의존하기보다
+CI가 알고 있는 배포 식별자를 명시적으로 artifact에 전달하는 편이
+운영 추적성이 높다.
 
 ---
