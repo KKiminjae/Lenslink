@@ -45,3 +45,9 @@ tasks.named('test') {
 springBoot {
 	buildInfo()
 }
+
+if (project.hasProperty('skipGitProperties')) {
+	tasks.named('generateGitProperties') {
+		enabled = false
+	}
+}

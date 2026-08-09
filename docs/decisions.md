@@ -901,3 +901,19 @@ Spring Boot가 제공하는 표준 기능을 활용할 수 있고,
 운영 버전 식별에 필요한 정보만 노출한다.
 
 API Key, DB 계정, 비밀번호 등의 민감 정보는 노출하지 않는다.
+
+---
+
+## Docker 빌드의 Git metadata 전달
+
+로컬 빌드에서는 `gradle-git-properties`가 `.git` 저장소에서
+Git commit 정보를 생성한다.
+
+Docker 빌드 환경에는 `.git` 디렉터리가 포함되지 않으므로
+GitHub Actions의 `github.sha`, `github.ref_name`을 Docker build argument로 전달한다.
+
+Docker 빌드 과정에서 전달받은 값을 기반으로 `git.properties`를 생성하고,
+Docker 내부에서는 `generateGitProperties` task를 비활성화한다.
+
+이를 통해 `.git` 전체를 Docker build context에 포함하지 않으면서도
+실제 CI가 빌드한 commit SHA를 애플리케이션에 기록할 수 있다.

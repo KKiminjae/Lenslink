@@ -11,7 +11,14 @@ RUN chmod +x gradlew
 
 COPY src src
 
-RUN ./gradlew bootJar --no-daemon
+ARG GIT_COMMIT_SHA=unknown
+ARG GIT_BRANCH=unknown
+
+RUN printf 'git.commit.id=%s\ngit.branch=%s\n' \
+    "$GIT_COMMIT_SHA" \
+    "$GIT_BRANCH" \
+    > src/main/resources/git.properties \
+    && ./gradlew bootJar --no-daemon -PskipGitProperties
 
 FROM eclipse-temurin:21-jre
 

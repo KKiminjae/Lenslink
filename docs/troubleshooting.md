@@ -974,3 +974,34 @@ IntelliJ 직접 실행
 ```
 
 ---
+
+## 25
+## Docker 빌드에서 Git repository를 찾지 못하는 문제
+
+### 증상
+
+```text
+No Git repository found.
+
+```
+
+### 원인
+
+gradle-git-properties는 .git 정보를 사용하지만
+Docker builder에는 .git 디렉터리를 복사하지 않는다.
+
+### 해결
+
+.git 전체를 Docker에 복사하지 않고,
+GitHub Actions의 commit SHA와 branch를 Docker build argument로 전달했다.
+
+Docker 내부에서는 전달받은 값으로 git.properties를 생성하고
+generateGitProperties task를 비활성화했다.
+
+### 교훈
+
+빌드 metadata는 소스 저장소 구조에 암묵적으로 의존하기보다
+CI가 알고 있는 배포 식별자를 명시적으로 artifact에 전달하는 편이
+운영 추적성이 높다.
+
+---
