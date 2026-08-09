@@ -375,3 +375,49 @@ Certbot은 Let's Encrypt 인증서 발급과 갱신을 담당하며, Nginx와 �
 Application 컨테이너가 중단되면 Nginx는 upstream에 연결하지 못해 `502 Bad Gateway`를 반환한다.
 
 MySQL 컨테이너가 중단되면 Application은 실행 상태를 유지하지만, DB를 사용하는 API는 연결 실패로 오류를 반환한다. MySQL이 복구되면 Application 재시작 없이 DB 연결이 다시 정상화된다.
+
+---
+
+## 운영 빌드 버전 식별
+
+운영 중인 애플리케이션이 어떤 Git 커밋으로 빌드되었는지
+확인할 수 있도록 Spring Boot Actuator의 `/actuator/info`를 사용한다.
+
+빌드 시 다음 두 메타데이터 파일이 생성된다.
+
+- `META-INF/build-info.properties`
+  - artifact
+  - version
+  - build time
+- `git.properties`
+  - Git branch
+  - Git commit SHA
+  - Git commit time
+
+생성 흐름:
+
+```text
+Git Repository
+      │
+      ▼
+gradle-git-properties
+      │
+      ▼
+git.properties
+      │
+      ├─────────────┐
+      │             │
+Gradle Build        │
+      │             │
+      ▼             │
+build-info.properties
+      │             │
+      └──────┬──────┘
+             ▼
+     Spring Boot Actuator
+             │
+             ▼
+     GET /actuator/info
+```
+
+---

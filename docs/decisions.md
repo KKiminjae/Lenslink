@@ -785,6 +785,52 @@ Let's Encrypt 인증서는 유효기간이 제한돼 있어 갱신 작업이 실
 
 ---
 
+## 운영 버전 식별에 `/actuator/info` 사용
+
+### 결정
+
+운영 애플리케이션의 버전을 확인하기 위해 별도의 버전 API를 구현하지 않고
+Spring Boot Actuator의 `/actuator/info`를 사용한다.
+
+빌드 정보는 다음 방식으로 생성한다.
+
+- `springBoot.buildInfo()` → build 정보
+- `gradle-git-properties` → Git commit 정보
+
+### 선택 이유
+
+Spring Boot가 제공하는 표준 기능을 활용할 수 있고,
+별도의 Controller나 버전 조회 로직을 유지보수할 필요가 없다.
+
+특히 Git commit SHA를 노출하여
+현재 실행 중인 애플리케이션이 정확히 어떤 코드로 빌드되었는지
+확인할 수 있다.
+
+### 대안
+
+별도의 `/api/version` 엔드포인트를 직접 구현할 수 있다.
+
+하지만 이 경우 Git SHA와 build time을 애플리케이션에 주입하는
+추가 로직이 필요하고 Spring Boot가 이미 제공하는 기능과 중복된다.
+
+### 얻는 것
+
+- 운영 배포 버전 즉시 확인
+- Git commit과 실행 컨테이너 비교 가능
+- 배포 누락 또는 구버전 실행 여부 확인 용이
+- 장애 분석 시 실행 코드 식별 시간 감소
+
+### 잃는 것
+
+- Gradle Git Properties 플러그인 의존성 추가
+- 빌드 과정에서 Git metadata 생성 단계 추가
+
+### 보안 고려
+
+`/actuator/info`에는 Git SHA, build version, build time 등
+운영 버전 식별에 필요한 정보만 노출한다.
+
+
 ## Docker 이미지 버전 관리
 
 운영 이미지는 `latest` 대신 커밋 SHA 기반 태그를 사용한다.
@@ -806,3 +852,52 @@ sha-471673e
 EC2에서 `git pull`만 해서는 실행 이미지가 바뀌지 않는다.
 
 배포 시 `.env`의 `IMAGE_TAG`와 실제 실행 중인 Docker 이미지가 최신 커밋과 일치하는지 확인한다.
+
+---
+
+## 운영 버전 식별에 `/actuator/info` 사용
+
+### 결정
+
+운영 애플리케이션의 버전을 확인하기 위해 별도의 버전 API를 구현하지 않고
+Spring Boot Actuator의 `/actuator/info`를 사용한다.
+
+빌드 정보는 다음 방식으로 생성한다.
+
+- `springBoot.buildInfo()` → build 정보
+- `gradle-git-properties` → Git commit 정보
+
+### 선택 이유
+
+Spring Boot가 제공하는 표준 기능을 활용할 수 있고,
+별도의 Controller나 버전 조회 로직을 유지보수할 필요가 없다.
+
+특히 Git commit SHA를 노출하여
+현재 실행 중인 애플리케이션이 정확히 어떤 코드로 빌드되었는지
+확인할 수 있다.
+
+### 대안
+
+별도의 `/api/version` 엔드포인트를 직접 구현할 수 있다.
+
+하지만 이 경우 Git SHA와 build time을 애플리케이션에 주입하는
+추가 로직이 필요하고 Spring Boot가 이미 제공하는 기능과 중복된다.
+
+### 얻는 것
+
+- 운영 배포 버전 즉시 확인
+- Git commit과 실행 컨테이너 비교 가능
+- 배포 누락 또는 구버전 실행 여부 확인 용이
+- 장애 분석 시 실행 코드 식별 시간 감소
+
+### 잃는 것
+
+- Gradle Git Properties 플러그인 의존성 추가
+- 빌드 과정에서 Git metadata 생성 단계 추가
+
+### 보안 고려
+
+`/actuator/info`에는 Git SHA, build version, build time 등
+운영 버전 식별에 필요한 정보만 노출한다.
+
+API Key, DB 계정, 비밀번호 등의 민감 정보는 노출하지 않는다.
