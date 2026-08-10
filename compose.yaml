@@ -29,7 +29,7 @@ services:
       timeout: 5s
       retries: 5
   app:
-    image: ghcr.io/kkiminjae/linklink:${IMAGE_TAG}
+    image: ghcr.io/kkiminjae/lenslink:${IMAGE_TAG}
     container_name: lenslink-app
 
     logging:
