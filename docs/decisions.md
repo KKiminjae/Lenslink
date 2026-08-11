@@ -917,3 +917,12 @@ Docker 내부에서는 `generateGitProperties` task를 비활성화한다.
 
 이를 통해 `.git` 전체를 Docker build context에 포함하지 않으면서도
 실제 CI가 빌드한 commit SHA를 애플리케이션에 기록할 수 있다.
+
+---
+
+## GitHub Actions AWS 인증에 OIDC 사용
+
+SSH private key 및 장기 AWS Access Key 대신
+GitHub OIDC + IAM Role 기반의 임시 자격증명을 사용한다.
+
+Trust Policy는 LensLink 저장소의 main 브랜치로 제한한다.
