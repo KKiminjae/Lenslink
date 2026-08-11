@@ -6,6 +6,10 @@ on:
     types:
       - completed
 
+permissions:
+  contents: read
+  id-token: write
+
 concurrency:
   group: lenslink-production
   cancel-in-progress: false
@@ -30,6 +34,15 @@ jobs:
 
           echo "Full SHA: ${FULL_SHA}"
           echo "Docker image tag: ${IMAGE_TAG}"
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: arn:aws:iam::452183714891:role/LensLinkGitHubDeployRole
+          aws-region: ap-northeast-2
+          allowed-account-ids: 452183714891
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1
