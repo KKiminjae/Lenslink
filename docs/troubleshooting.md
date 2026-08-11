@@ -1005,3 +1005,40 @@ CI가 알고 있는 배포 식별자를 명시적으로 artifact에 전달하는
 운영 추적성이 높다.
 
 ---
+
+## 26
+## GitHub Actions OIDC AssumeRole 실패
+
+### 증상
+
+`configure-aws-credentials`에서 다음 오류 발생:
+
+`Not authorized to perform sts:AssumeRoleWithWebIdentity`
+
+### 원인
+
+IAM Trust Policy에 설정한 OIDC `sub`와
+GitHub가 실제 발급한 `sub`가 일치하지 않았다.
+
+예상:
+
+repo:KKiminjae/Lenslink:ref:refs/heads/main
+
+실제:
+
+repo:KKiminjae@249421065/Lenslink@1295061276:ref:refs/heads/main
+
+### 확인 방법
+
+임시 GitHub Actions step에서 OIDC JWT의
+aud, sub, repository_id, repository_owner_id 등을 확인했다.
+
+### 해결
+
+IAM Trust Policy의 `sub` 조건을 실제 GitHub OIDC subject로 수정했다.
+
+### 결과
+
+- Configure AWS credentials 성공
+- LensLinkGitHubDeployRole Assume 성공
+- AWS Account 검증 성공
