@@ -52,24 +52,24 @@ jobs:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
           IMAGE_TAG: ${{ steps.deploy_vars.outputs.image_tag }}
         run: |
-          set -euo pipefail
+          set -euo pipefail;
 
           REMOTE_COMMAND=$(cat <<EOF
           sudo -iu ubuntu bash -lc '
-          set -euo pipefail
+          set -euo pipefail;
 
-          cd /home/ubuntu/LensLink
+          cd /home/ubuntu/LensLink;
 
-          git fetch origin main
+          git fetch origin main;
 
           if git ls-tree -r --name-only "${DEPLOY_SHA}" -- .env | grep -qx ".env"; then
-            echo "ERROR: .env must not be tracked by Git."
-            exit 1
-          fi
+            echo "ERROR: .env must not be tracked by Git.";
+            exit 1;
+          fi;
 
-          git checkout --detach "${DEPLOY_SHA}"
+          git checkout --detach "${DEPLOY_SHA}";
 
-          ./scripts/deploy.sh "${IMAGE_TAG}"
+          ./scripts/deploy.sh "${IMAGE_TAG}";
           '
           EOF
           )
