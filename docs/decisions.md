@@ -926,3 +926,21 @@ SSH private key 및 장기 AWS Access Key 대신
 GitHub OIDC + IAM Role 기반의 임시 자격증명을 사용한다.
 
 Trust Policy는 LensLink 저장소의 main 브랜치로 제한한다.
+
+---
+
+## SSH 기반 CD에서 OIDC + SSM 기반 CD로 전환
+
+### 결정
+
+기존 GitHub Actions의 SSH 기반 EC2 배포 방식을 제거하고 다음 구조로 변경하였다.
+
+```text
+GitHub Actions
+→ GitHub OIDC
+→ LensLinkGitHubDeployRole
+→ AWS SSM Run Command
+→ EC2 SSM Agent
+→ ubuntu
+→ scripts/deploy.sh
+```

@@ -1042,3 +1042,60 @@ IAM Trust Policy의 `sub` 조건을 실제 GitHub OIDC subject로 수정했다.
 - Configure AWS credentials 성공
 - LensLinkGitHubDeployRole Assume 성공
 - AWS Account 검증 성공
+
+---
+
+## 27
+## SSM Run Command 줄바꿈 소실
+
+### 문제
+
+SSM 기반 CD 첫 실행에서 `Wait for deployment`가 실패했다.
+
+```text
+bash: -c: line 1: syntax error near unexpected token `then'
+```
+
+실제 전달된 명령은 다음처럼 여러 명령이 붙어 있었다.
+
+```text
+set -euo pipefailcd /home/ubuntu/LensLinkgit fetch origin mainif ...
+```
+
+### 원인
+
+`REMOTE_COMMAND`를 여러 줄 문자열로 전달했는데, SSM을 거치는 과정에서 줄바꿈이 명령 구분자로 유지되지 않았다.
+
+### 해결
+
+원격 명령마다 `;`를 명시하여 줄바꿈이 제거되어도 Bash 문법이 유지되도록 수정했다.
+
+```bash
+set -euo pipefail;
+cd /home/ubuntu/LensLink;
+git fetch origin main;
+
+if ...; then
+  ...
+fi;
+
+git checkout --detach "${DEPLOY_SHA}";
+./scripts/deploy.sh "${IMAGE_TAG}";
+```
+
+### 검증
+
+수정 후 실제 SSM CD가 정상 성공했고 다음 값이 모두 일치했다.
+
+```text
+EC2 Git HEAD   = a72850e
+IMAGE_TAG      = sha-a72850e
+/actuator/info = a72850e
+health         = UP
+```
+
+존재하지 않는 이미지 태그를 사용한 rollback 테스트에서도 이전 정상 버전으로 복구되는 것을 확인했다.
+
+### 배운 점
+
+원격 shell 명령을 문자열로 전달할 때는 줄바꿈 보존을 가정하지 말고 명령 구분자를 명시적으로 관리해야 한다.

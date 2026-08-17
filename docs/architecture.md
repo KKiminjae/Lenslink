@@ -213,7 +213,7 @@ Docker 실행 환경
 ```text
 Developer
     │
-git push (main)
+git push / merge to main
     │
     ▼
 GitHub Actions (CI)
@@ -223,32 +223,198 @@ GitHub Actions (CI)
     ├─ Gradle Test
     ├─ Docker Image Build
     └─ GHCR Push
-             │
-             ▼
+          │
+          │ sha-<commit>
+          ▼
 GitHub Actions (CD)
     │
-    ├─ SSH to EC2
-    ├─ docker compose pull
-    └─ docker compose up -d
-             │
-             ▼
-EC2
+    ├─ CI 성공 및 main 브랜치 확인
+    ├─ 배포 대상 Git SHA / IMAGE_TAG 결정
+    ├─ GitHub OIDC Token 발급
     │
-Docker Container
+    ▼
+AWS IAM
+LensLinkGitHubDeployRole
     │
-Spring Boot
+    │ AssumeRoleWithWebIdentity
+    ▼
+AWS Systems Manager
+SSM Run Command
     │
-MySQL
+    ▼
+EC2 SSM Agent
+    │
+    │ root
+    ▼
+sudo -iu ubuntu
+    │
+    ▼
+/home/ubuntu/LensLink
+    │
+    ├─ git fetch origin main
+    ├─ .env Git 추적 여부 검증
+    ├─ 배포 대상 SHA로 detached checkout
+    └─ scripts/deploy.sh 실행
+              │
+              ▼
+        Docker Compose
+              │
+              ├─ app image pull
+              ├─ app container 교체
+              ├─ health check
+              ├─ /actuator/info SHA 검증
+              └─ 실패 시 이전 IMAGE_TAG rollback
 ```
+
+GitHub Actions는 SSM에 명령을 전달한 뒤 `CommandId`를 이용해 실행 상태를 조회한다.
+
+```text
+SSM SendCommand
+      │
+      ▼
+CommandId
+      │
+      ▼
+get-command-invocation
+      │
+      ├─ Pending / InProgress → 대기
+      ├─ Success              → CD 성공
+      └─ Failed / TimedOut    → CD 실패
+```
+
+따라서 SSM에 명령을 전달하는 것만으로 배포 성공으로 판단하지 않고,
+EC2에서 실제 배포 명령이 종료될 때까지 GitHub Actions가 결과를 확인한다.
+
+---
+
+## 배포 버전 일관성
+
+CI에서 검증한 Git commit과 실제 운영 중인 애플리케이션 버전이 동일하도록 SHA를 기준으로 배포한다.
+
+```text
+CI가 검증한 Git SHA
+        │
+        ├──────────────┐
+        ▼              ▼
+EC2 Git HEAD      GHCR Image Tag
+a72850e           sha-a72850e
+        │              │
+        └──────┬───────┘
+               ▼
+        Running Container
+               │
+               ▼
+        /actuator/info
+        commit = a72850e
+```
+
+CD에서는 `main` 브랜치의 최신 상태를 직접 배포하는 대신,
+CI가 성공한 `workflow_run.head_sha`를 정확하게 checkout한다.
+
+---
+
+## 운영 서버 접근 구조
+
+EC2 운영 접근에는 SSH를 사용하지 않고 AWS Systems Manager Session Manager를 사용한다.
+
+```text
+운영자
+    │
+    ▼
+AWS Systems Manager
+Session Manager
+    │
+    ▼
+EC2 SSM Agent
+    │
+    ▼
+ssm-user
+    │
+sudo -iu ubuntu
+    ▼
+ubuntu
+```
+
+배포 자동화 역시 SSH 대신 SSM Run Command를 사용한다.
+
+따라서 EC2 Security Group에는 SSH용 22번 inbound 규칙을 두지 않는다.
+
+```text
+기존
+
+GitHub Actions
+→ SSH Private Key
+→ EC2 :22
+→ deploy.sh
+
+
+현재
+
+GitHub Actions
+→ OIDC
+→ IAM Role
+→ SSM Run Command
+→ EC2
+→ deploy.sh
+```
+
+---
 
 ## 구성 요소
 
-- GitHub Actions : CI/CD 파이프라인
-- GHCR : Docker 이미지 저장소
-- EC2 : 서비스 실행 서버
-- Docker Compose : 컨테이너 관리
-- MySQL : 데이터베이스
+* `GitHub Actions CI`
+
+  * 테스트 수행
+  * Docker 이미지 빌드
+  * Git SHA 기반 이미지 태그 생성
+  * GHCR에 이미지 push
+
+* `GitHub Actions CD`
+
+  * CI 성공 및 main 브랜치 여부 확인
+  * 배포 대상 SHA와 IMAGE_TAG 결정
+  * AWS OIDC 인증
+  * SSM Run Command 실행
+  * SSM 명령 완료 상태 확인
+
+* `GitHub OIDC`
+
+  * GitHub Actions가 장기 AWS Access Key 없이 AWS IAM Role을 사용할 수 있도록 한다.
+
+* `LensLinkGitHubDeployRole`
+
+  * GitHub Actions가 LensLink EC2에 필요한 SSM 명령을 실행할 수 있도록 권한을 제공한다.
+
+* `SSM Run Command`
+
+  * SSH 연결 없이 EC2에서 배포 명령을 실행한다.
+
+* `SSM Agent`
+
+  * EC2에서 Systems Manager 명령을 수신하고 실행한다.
+
+* `GHCR`
+
+  * Git SHA 기반 Docker 이미지를 저장한다.
+
+* `scripts/deploy.sh`
+
+  * Docker 이미지 pull
+  * 컨테이너 교체
+  * health check
+  * 배포 SHA 검증
+  * 실패 시 이전 이미지 rollback을 담당한다.
+
+* `EC2`
+
+  * Docker Compose 기반 LensLink 운영 서버
+
+* `Docker Compose`
+
+  * Nginx, Spring Boot, MySQL 컨테이너를 관리한다.
+
 ---
+
 
 ## Spring Profile 구조
 
