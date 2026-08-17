@@ -587,3 +587,20 @@ build-info.properties
 ```
 
 ---
+
+### 환경별 포트 노출
+
+운영 환경에서는 외부 요청을 Nginx만 수신하도록 구성한다.
+
+```text
+운영
+Internet
+  ↓
+80 / 443
+  ↓
+Nginx
+  ↓
+app:8080
+  ↓
+mysql:3306
+```
