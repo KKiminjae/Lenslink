@@ -45,26 +45,111 @@ jobs:
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          script: |
-            set -e
+      - name: Send deployment command
+        id: ssm_send
+        env:
+          INSTANCE_ID: i-04d86620cc8253899
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          IMAGE_TAG: ${{ steps.deploy_vars.outputs.image_tag }}
+        run: |
+          set -euo pipefail
 
-            cd /home/ubuntu/LensLink
+          REMOTE_COMMAND=$(cat <<EOF
+          sudo -iu ubuntu bash -lc '
+          set -euo pipefail
 
-            DEPLOY_SHA="${{ github.event.workflow_run.head_sha }}"
-            git fetch origin main
+          cd /home/ubuntu/LensLink
 
-            if git ls-tree -r --name-only "${DEPLOY_SHA}" -- .env | grep -qx '.env'; then
-              echo "ERROR: .env must not be tracked by Git."
-              exit 1
-            fi
+          git fetch origin main
 
-            git checkout --detach "${DEPLOY_SHA}"
+          if git ls-tree -r --name-only "${DEPLOY_SHA}" -- .env | grep -qx ".env"; then
+            echo "ERROR: .env must not be tracked by Git."
+            exit 1
+          fi
 
-            ./scripts/deploy.sh \
-              "${{ steps.deploy_vars.outputs.image_tag }}"
+          git checkout --detach "${DEPLOY_SHA}"
+
+          ./scripts/deploy.sh "${IMAGE_TAG}"
+          '
+          EOF
+          )
+
+          PARAMETERS=$(jq -n \
+            --arg command "$REMOTE_COMMAND" \
+            '{commands: [$command]}')
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "LensLink deploy ${DEPLOY_SHA:0:7}" \
+            --parameters "$PARAMETERS" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+          echo "SSM Command ID: $COMMAND_ID"
+
+      - name: Wait for deployment
+        env:
+          INSTANCE_ID: i-04d86620cc8253899
+          COMMAND_ID: ${{ steps.ssm_send.outputs.command_id }}
+        run: |
+          set -euo pipefail
+
+          MAX_ATTEMPTS=120
+          SLEEP_SECONDS=5
+
+          for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "Status" \
+              --output text 2>/dev/null || true)
+
+            echo "Attempt ${i}/${MAX_ATTEMPTS} - Status: ${STATUS}"
+
+            case "$STATUS" in
+              Success)
+                echo "SSM deployment succeeded."
+
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query "{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}" \
+                  --output json
+
+                exit 0
+                ;;
+
+              Failed|TimedOut|Cancelled)
+                echo "ERROR: SSM deployment failed with status: ${STATUS}"
+
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query "{Status:Status,StatusDetails:StatusDetails,ResponseCode:ResponseCode,Stdout:StandardOutputContent,Stderr:StandardErrorContent}" \
+                  --output json
+
+                exit 1
+                ;;
+
+              Pending|InProgress|Delayed|Cancelling|"")
+                sleep "$SLEEP_SECONDS"
+                ;;
+
+              *)
+                echo "Waiting for SSM command. Current status: ${STATUS}"
+                sleep "$SLEEP_SECONDS"
+                ;;
+            esac
+          done
+
+          echo "ERROR: Timed out waiting for SSM deployment."
+
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query "{Status:Status,StatusDetails:StatusDetails,ResponseCode:ResponseCode,Stdout:StandardOutputContent,Stderr:StandardErrorContent}" \
+            --output json || true
+
+          exit 1
