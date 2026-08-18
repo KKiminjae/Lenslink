@@ -76,7 +76,7 @@ jobs:
 
           PARAMETERS=$(jq -n \
             --arg command "$REMOTE_COMMAND" \
-            '{commands: [$command]}')
+            '{commands: [$command], executionTimeout: ["540"]}')
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
@@ -100,11 +100,25 @@ jobs:
           SLEEP_SECONDS=5
 
           for ((i=1; i<=MAX_ATTEMPTS; i++)); do
-            STATUS=$(aws ssm get-command-invocation \
+            if OUTPUT=$(aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
               --instance-id "$INSTANCE_ID" \
               --query "Status" \
-              --output text 2>/dev/null || true)
+              --output text 2>&1); then
+
+              STATUS="$OUTPUT"
+
+            else
+              if [[ "$OUTPUT" == *"InvocationDoesNotExist"* ]]; then
+                echo "Attempt ${i}/${MAX_ATTEMPTS} - SSM invocation is not visible yet."
+                sleep "$SLEEP_SECONDS"
+                continue
+              fi
+
+              echo "ERROR: Failed to query SSM command status."
+              echo "$OUTPUT"
+              exit 1
+            fi
 
             echo "Attempt ${i}/${MAX_ATTEMPTS} - Status: ${STATUS}"
 
