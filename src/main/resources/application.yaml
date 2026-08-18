@@ -2,25 +2,14 @@ spring:
   application:
     name: lenslink
 
-  profiles:
-    active: local
-
   servlet:
     multipart:
       max-file-size: 5MB
       max-request-size: 6MB
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-
-    show-sql: true
-
-    properties:
-      hibernate:
-        format_sql: true
 openai:
   api-key: ${OPEN_API_KEY}
+
 naver:
   client-id: ${NAVER_CLIENT_ID}
   client-secret: ${NAVER_CLIENT_SECRET}
