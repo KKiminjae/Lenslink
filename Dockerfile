@@ -24,7 +24,11 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY --from=builder /app/build/libs/*.jar app.jar
+COPY --from=builder \
+    --chown=10001:10001 \
+    /app/build/libs/*.jar app.jar
+
+USER 10001:10001
 
 EXPOSE 8080
 
