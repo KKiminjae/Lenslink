@@ -944,3 +944,81 @@ GitHub Actions
 → ubuntu
 → scripts/deploy.sh
 ```
+
+---
+
+## V1 운영 최종 결정
+
+### App-only CD 유지
+
+일반 배포에서는 `app`만 pull/recreate한다. MySQL과 Nginx는 애플리케이션 코드와 lifecycle이 다르므로 일반 CD에서 함께 재생성하지 않는다.
+
+장점은 배포 영향 범위를 최소화할 수 있다는 것이다. 대신 MySQL/Nginx 또는 `compose.yaml`의 관련 설정을 변경한 경우 별도 반영이 필요하다.
+
+현재 rollback 역시 전체 release rollback이 아니라 이전 **app image rollback**을 보장하는 수준이다.
+
+---
+
+### 운영 DB Schema 자동 변경 금지
+
+로컬에서는 개발 편의를 위해 `ddl-auto: update`를 사용하고, 운영에서는 `ddl-auto: validate`를 사용한다.
+
+운영에서 Hibernate가 DB schema를 자동 변경하면 app rollback과 DB schema 상태가 불일치할 수 있기 때문이다.
+
+향후 schema 변경이 필요해지면 Flyway/Liquibase 같은 migration 도구를 도입한다.
+
+---
+
+### 실행 환경별 설정 분리
+
+공통 설정에서 `local` profile 자동 활성화를 제거하고 실행 환경에서 profile을 명시하도록 변경했다.
+
+* Local: `local`
+* Production: `docker`
+* Test: `test`
+
+운영 설정이 누락됐을 때 잘못된 local 환경으로 실행되는 것보다 명확하게 실패하는 편이 안전하다.
+
+---
+
+### App Container Non-root 실행
+
+Spring Boot는 root 권한이 필요하지 않으므로 runtime container를 UID/GID `10001`로 실행한다.
+
+이를 통해 애플리케이션 취약점 발생 시 컨테이너 내부에서 얻을 수 있는 권한 범위를 줄인다.
+
+---
+
+### Nginx의 Docker DNS 동적 조회
+
+CD가 `app`만 recreate하므로 app container의 내부 IP가 변경될 수 있다.
+
+Nginx는 Docker DNS(`127.0.0.11`)를 사용해 `app` service의 현재 IP를 다시 조회하도록 구성했다.
+
+배포마다 Nginx를 reload하는 방식보다 app과 Nginx lifecycle을 독립적으로 유지할 수 있다는 점을 선택 이유로 삼았다.
+
+---
+
+### MySQL 자동 재시작
+
+MySQL에도 `restart: unless-stopped`를 적용한다.
+
+EC2 또는 Docker daemon 재시작 후 DB가 자동 복구되지 않아 app이 정상 실행되지 못하는 상황을 방지하기 위해서다.
+
+---
+
+### SSH는 비상 복구용으로만 유지
+
+정상 배포와 운영 접근은 OIDC + SSM / Session Manager를 사용한다.
+
+Security Group의 22번 포트는 평상시 닫아 두고, 기존 SSH key는 SSM 장애 시 사용할 break-glass 수단으로만 유지한다.
+
+---
+
+### SSM Timeout 정책
+
+SSM 명령 실행 제한을 540초, GitHub Actions polling을 약 600초로 둔다.
+
+감시하는 GitHub Actions보다 실제 원격 명령이 먼저 종료되도록 하여, GitHub는 실패했는데 EC2에서는 배포가 계속 실행되는 상태를 줄인다.
+
+SSM 자체 timeout으로 강제 종료된 경우에는 자동 rollback을 보장하지 않으며 운영 상태를 별도로 확인한다.
