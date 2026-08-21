@@ -604,3 +604,130 @@ app:8080
   ↓
 mysql:3306
 ```
+
+---
+
+## V1 최종 운영 구조
+
+### 배포 흐름
+
+```text
+GitHub main
+    ↓
+LensLink CI
+    ↓
+Test + Docker Image Build
+    ↓
+GHCR
+    ↓
+LensLink CD
+    ↓
+GitHub OIDC
+    ↓
+AWS STS
+    ↓
+LensLinkGitHubDeployRole
+    ↓
+SSM Run Command
+    ↓
+EC2
+    ↓
+scripts/deploy.sh
+    ↓
+app pull / recreate
+    ↓
+health + SHA 검증
+    ↓
+실패 시 이전 app image rollback
+```
+
+일반 CD에서는 `app` 서비스만 자동 배포한다. MySQL과 Nginx 설정 변경은 별도로 반영한다.
+
+---
+
+### 운영 요청 흐름
+
+```text
+Client
+  ↓
+HTTP :80
+  ↓
+Nginx
+  ↓ 301 Redirect
+HTTPS :443
+  ↓
+Nginx Reverse Proxy
+  ↓ Docker Network
+Spring Boot app :8080
+  ↓
+MySQL :3306
+```
+
+외부에 publish되는 포트는 Nginx의 `80`, `443`뿐이다.
+
+`app:8080`, `mysql:3306`은 Docker network 내부에서만 사용한다.
+
+---
+
+### Docker 구성
+
+```text
+lenslink-nginx
+→ nginx
+→ 80 / 443 publish
+
+lenslink-app
+→ GHCR LensLink image
+→ 내부 8080
+→ memory limit 384MB
+→ non-root UID/GID 10001
+
+lenslink-mysql
+→ mysql:8.4
+→ 내부 3306
+→ mysql-data volume
+→ restart: unless-stopped
+
+lenslink-certbot
+→ Let's Encrypt 인증서 갱신
+```
+
+Nginx는 Docker DNS `127.0.0.11`을 사용하여 `app` 서비스의 현재 IP를 조회한다.
+
+---
+
+### 환경별 Spring 설정
+
+```text
+local
+→ local MySQL
+→ ddl-auto: update
+→ show-sql: true
+
+docker
+→ 운영 MySQL
+→ ddl-auto: validate
+→ show-sql: false
+
+test
+→ test DB
+→ dummy 외부 API credential
+```
+
+공통 `application.yaml`에서는 특정 profile을 자동 활성화하지 않는다.
+
+---
+
+### 운영 접근
+
+```text
+일반 운영 접근
+→ AWS Session Manager
+
+자동 배포
+→ GitHub OIDC + SSM Run Command
+
+SSH
+→ 평상시 Security Group 22 차단
+→ 비상 복구용 key만 유지
+```

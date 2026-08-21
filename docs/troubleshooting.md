@@ -1099,3 +1099,105 @@ health         = UP
 ### 배운 점
 
 원격 shell 명령을 문자열로 전달할 때는 줄바꿈 보존을 가정하지 말고 명령 구분자를 명시적으로 관리해야 한다.
+
+---
+
+## 28
+### SSM 상태 조회 오류가 모두 숨겨지는 문제
+
+#### 문제
+
+CD polling에서 다음 코드로 인해 모든 AWS CLI 오류가 무시되고 있었다.
+
+```bash
+2>/dev/null || true
+```
+
+`InvocationDoesNotExist`뿐 아니라 `AccessDenied`, 인증 오류 등 실제 장애도 빈 상태값으로 처리될 수 있었다.
+
+#### 해결
+
+`InvocationDoesNotExist`만 SSM eventual consistency에 따른 일시적 오류로 보고 재시도하고, 나머지 AWS CLI 오류는 로그를 출력한 뒤 즉시 실패하도록 수정했다.
+
+또한 `AWS-RunShellScript`의 `executionTimeout`을 540초로 제한했다.
+
+#### 검증
+
+실제 운영 CD에서 SSM 상태가 `InProgress → Success`로 정상 polling되고 stdout/stderr가 출력되는 것을 확인했다.
+
+---
+## 29
+
+### MySQL 재시작 정책 누락
+
+#### 문제
+
+`app`, `nginx`에는 `restart: unless-stopped`가 있었지만 MySQL에는 restart policy가 없었다.
+
+EC2 또는 Docker daemon 재시작 후 MySQL이 자동 복구되지 않을 가능성이 있었다.
+
+#### 해결
+
+```yaml
+mysql:
+  restart: unless-stopped
+```
+
+를 추가하고 운영 MySQL 컨테이너를 recreate했다.
+
+#### 검증
+
+`docker inspect`에서 MySQL restart policy가 `unless-stopped`인 것을 확인하고 전체 서비스 health를 재검증했다.
+
+---
+
+## 30
+
+### App 컨테이너가 root로 실행되는 문제
+
+#### 문제
+
+Dockerfile에 `USER`가 지정되지 않아 운영 Spring Boot 프로세스가 컨테이너 내부에서 root로 실행되고 있었다.
+
+#### 해결
+
+runtime image에서 UID/GID `10001`을 사용하도록 변경했다.
+
+```dockerfile
+COPY --from=builder \
+    --chown=10001:10001 \
+    /app/build/libs/*.jar app.jar
+
+USER 10001:10001
+```
+
+#### 검증
+
+로컬과 운영에서 `docker exec lenslink-app id` 및 Java PID 1의 UID/GID를 확인하여 non-root 실행을 검증했다.
+
+---
+
+## 31
+
+### App recreate 후 Nginx upstream IP 변경 가능성
+
+#### 문제
+
+CD는 Nginx를 유지한 채 `app`만 recreate한다.
+
+Docker container recreate 시 내부 IP가 변경될 수 있으므로 Nginx가 기존 app IP를 계속 사용할 가능성을 검토했다.
+
+#### 해결
+
+Docker embedded DNS를 Nginx resolver로 사용하도록 변경했다.
+
+```nginx
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+set $app_backend app;
+proxy_pass http://$app_backend:8080;
+```
+
+#### 검증
+
+Nginx 설정을 `nginx -t`로 검증한 뒤 reload했고, HTTP → HTTPS redirect와 `/actuator/health` 정상 응답을 확인했다.
